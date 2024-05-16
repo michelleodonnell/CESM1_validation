@@ -1,0 +1,70 @@
+---
+title: "Crop single netCDF with polygons (shapefiles)"
+output: html_notebook
+---
+
+```{r}
+# Libraries
+library(tidyverse)
+library(raster) # for cropping netcdfs
+library(sf)
+library(PCICt)
+library(exactextractr) #for spatial average (exact_extract vs exactextractr?)
+library(lubridate)
+```
+
+```{r}
+# Loop through subbasins to subset each netcdf by subbasin of the Mississippi River basin
+# just update the path to the shapefile and netcdf of interest, and the write directory info
+
+# load the shapefile of interest --> select which shpfile to use, in this case the Mississippi subbasins I have been using
+#shpfile <- st_read('/Volumes/MCO_SSD/maps/MississippiSubBasins/MississippiSubBasins.shp') #all subbasins
+#shpfile <- st_read('/Volumes/MCO_SSD/maps/MississippiOutline/MississippiOutline.shp') #entire basin
+shpfile <- st_read('/Volumes/MCO_SSD/maps/MississippiSubBasins/grouped_east_west/grouped_east_west.shp') #combined into east/west subbasins
+
+# load the netcdf of interest
+### need to use varname="" if netcdf contains more than one variable
+netcdf <- brick('/Volumes/MCO_SSD/data/CESM2/TREFHT/MONTHLY/CONUS/CESM2_CMIP6_TREFHT_monthly_ensmean_C_units.nc', varname="TREFHT") 
+
+# where should the output files be written to?
+writedir <- '/Volumes/MCO_SSD/data/CESM2/TREFHT/MONTHLY/BASINS/MISSISSIPPI/'
+writestemproalscale <- "monthly_avg"
+writenameidentifier <- "CESM2_TREFHT" # the model name and variable is probably a good choice (ex. "CESM_precip")
+```
+
+
+```{r}
+######
+#don't change below this
+####
+
+# use raster::rotate() to shift x coordinate from 0-360 to -180 to 180
+netcdf_rotated <- rotate(netcdf)
+
+# get the shapefile id values to loop through the basins later
+subbasin_id_list <- shpfile$objectid # original object id (so not sequential)
+
+for (i in 1:length(subbasin_id_list)){
+  subbasin_id = subbasin_id_list[i]
+  shpfile_subset <- shpfile[shpfile$objectid == subbasin_id,]
+  print(paste(shpfile_subset$objectid,",", shpfile_subset$name))
+  
+  # mask the netcdf with the single basin. need both lines to have it crop to extent of polygon, rather than box.
+  masked_single_basin <- crop(netcdf_rotated, extent(shpfile_subset), snap = "near") # these are gridded
+  masked2_single_basin <- mask(masked_single_basin, shpfile_subset) # these are gridded
+  
+  # average the values over the basin
+  basin_averaged = exact_extract(masked2_single_basin,shpfile_subset, 'mean')
+  
+  #rotate the df from wide to long. Using NA with the separate function excludes the values other than those listed
+  subbasin_cropped_avg <- basin_averaged %>% 
+    gather() %>% 
+    separate(key, into = c(NA,"year","month","day")) %>%
+    separate(year,into= c(NA,"year"),sep=c("X")) %>%
+    mutate(DATE = make_date(year,month,day))
+  
+  # write to file
+  write_delim(subbasin_cropped_avg, paste(writedir,writestemproalscale,"_",make.names(shpfile_subset$name),"_",writenameidentifier,".txt", sep = ''))
+}
+```
+

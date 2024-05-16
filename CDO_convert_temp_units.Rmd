@@ -1,0 +1,70 @@
+---
+title: "CDO convert temp unit"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(devtools)
+
+devtools::install_github("markpayneatwork/ClimateOperators")
+library(ClimateOperators)
+```
+
+```{r}
+#What are we doing here?
+#Convert from K to degC when input file contains temperature values:
+#cdo -addc,-273.15 <infile> <outfile>
+#and don't forget to change the variable (here tas) units, too. Combining operators:
+#cdo -setattribute,tas@units="degC" -addc,-273.15 <infile> <outfile>
+
+# This could be changed for other unit conversions 
+# ex m to mm: cdo -b 32 -mulc,1000 .... along with updating the unit name
+```
+
+```{r}
+# Specify directory where the netcdfs are saved that you want to crop
+# keep the trailing "/"
+
+in_path <- "/Volumes/MCO_SSD/data/ERA5/"
+
+```
+
+```{r}
+# get files list. do this before creating the new folder so that it isn't part of the files list (or maybe there's a good way to exclude it)
+files_list <- list.files(in_path, full.names = FALSE, recursive = FALSE)
+files_list
+```
+
+```{r}
+# create the directory to save the new files to
+new_dir <- paste(in_path,"units/", sep='')
+
+if(dir.exists(new_dir)){
+  cat("Folder already exists")
+} else {
+  dir.create(new_dir)
+}
+```
+
+```{r}
+#Crop using cdo command
+
+for (f in files_list){
+  #print(f)
+  in_fname <- paste(in_path,f, sep = '')
+  out_fname1 <- paste(new_dir,str_remove(f, pattern = ".nc"),"_temp_only.nc",sep = '')
+  out_fname2 <- paste(new_dir,str_remove(f, pattern = ".nc"),"_degC_intermediate.nc",sep = '')
+  out_fname3 <- paste(new_dir,str_remove(f, pattern = ".nc"),"_degC.nc",sep = '')
+  
+  print(in_fname)
+  cdo(ssl("-selname,t2m",in_fname, out_fname1))
+  cdo(ssl("-b 32 -addc,-273.15", out_fname1, out_fname2))
+  cdo(ssl("-setattribute,t2m@units='degC'",out_fname2, out_fname3))
+  
+  file.remove(out_fname1)
+  file.remove(out_fname2)
+  
+}
+```
+

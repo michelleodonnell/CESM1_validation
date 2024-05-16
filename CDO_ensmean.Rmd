@@ -1,0 +1,31 @@
+---
+title: "CDO ensmean"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(devtools)
+
+#devtools::install_github("markpayneatwork/ClimateOperators")
+library(ClimateOperators)
+```
+
+```{r}
+# Specify directory where the netcdfs are saved that you want to calculate the ensemble mean of, and the file names
+
+path <- "/Volumes/MCO_SSD/data/CESM/QDRAI/1850/crop/" # keep the trailing "/"
+
+in_fname <- paste(path,"*.nc", sep='')
+out_fname <- paste(path,"QDRAI.18502005.ensmean.nc", sep='') # keep the .nc extension
+
+```
+
+
+```{r}
+cdo(ssl("ensmean",in_fname, out_fname))
+```
+```{r}
+# can also use "ncea /Volumes/MCO_SSD/data/CESM/QDRAI/1850/crop/*.nc in terminal /Volumes/MCO_SSD/data/CESM/QDRAI/1850/crop/QDRAI.18502005.ensmean" if the cdo command won't work with the appropriate edits
+```
+

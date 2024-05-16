@@ -1,0 +1,88 @@
+---
+title: "CDO crop in R"
+output: html_notebook
+---
+
+# example: https://stackoverflow.com/questions/37910749/is-it-possible-to-run-cdo-within-a-r-script
+
+```{r}
+library(tidyverse)
+library(devtools)
+
+#devtools::install_github("markpayneatwork/ClimateOperators")
+library(ClimateOperators)
+```
+
+```{r}
+###
+# for files in file list
+# function to:
+# cd to correct directory
+# create a new directory to save the output files to, if it doesn't already exist
+# crop each netcdf
+# option to delete the original files (don't fill up your storage!)
+# 
+```
+
+
+```{r}
+# Specify directory where the netcdfs are saved that you want to crop
+# keep the trailing "/"
+
+in_path <- "/Users/michelleodonnell/Desktop/CESM_downloads_temp/DISCHARGE/allensmems/"
+
+```
+
+```{r}
+# get files list. do this before creating the new folder so that it isn't part of the files list (or maybe there's a good way to exclude it)
+files_list <- list.files(in_path, full.names = FALSE, recursive = FALSE)
+
+files_list
+
+```
+
+```{r}
+# create the directory to save the new files to
+new_dir <- paste(in_path,"crop_CONUS/", sep='')
+
+if(dir.exists(new_dir)){
+  cat("Folder already exists")
+} else {
+  dir.create(new_dir)
+}
+```
+
+
+```{r}
+#Crop using cdo command
+
+for (f in files_list){
+  #print(f)
+  in_fname <- paste(in_path,f, sep = '')
+  out_fname <- paste(new_dir,str_remove(f, pattern = ".nc"),"_CONUS.nc",sep = '')
+  
+  print(in_fname)
+  print(out_fname)
+  
+  cdo(ssl("sellonlatbox,235,300,25,55",in_fname, out_fname))
+}
+```
+
+```{r}
+# Then delete the original full files to save space (only keep the files that have been cropped to CONUS)
+# this will remove the entire folder if it only points to a folder and not specific file(s)
+# this could be combined with above section 
+
+#file <- "/Users/michelleodonnell/Desktop/test/" # can specify an individual file instead if needed
+
+for (f in files_list){
+  in_fname <- paste(in_path,f, sep = '')
+  if (file.exists(in_fname)) {
+   file.remove(in_fname)
+   print(paste(in_fname,"has been deleted"))
+  }
+}
+
+```
+
+
